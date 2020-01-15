@@ -1,4 +1,6 @@
-﻿
+﻿Upload Image to Google Driver and get text via Ocr Vision
+
+
 *1: create project driver
 https://console.developers.google.com/flows/enableapi?apiid=drive&pli=1
 
