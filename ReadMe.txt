@@ -6,7 +6,7 @@ https://console.developers.google.com/flows/enableapi?apiid=drive&pli=1
 
 *2: 
 
-
+http://anthonygiretti.com/2015/10/25/google-drive-api-with-net-an-alternative-to-azure-blob-storage/
 
 
 https://developers.google.com/drive/api/v3/manage-uploads
