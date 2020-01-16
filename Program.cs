@@ -96,6 +96,8 @@ namespace test_driver_ocr
 
                 // Uncomment the following line to print the File ID.
                 // Console.WriteLine("File ID: " + file.Id);
+                
+                Console.WriteLine(output);
 
             }
             catch (Exception e)
