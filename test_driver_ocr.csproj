@@ -55,7 +55,10 @@
       <HintPath>packages\Newtonsoft.Json.10.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -64,12 +67,24 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.cs" />
+    <Compile Include="App.cs" />
+    <Compile Include="IApp.cs" />
+    <Compile Include="Routes.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Models\OCR_BUF.cs" />
+    <Compile Include="Models\OCR_DATA_TYPE.cs" />
+    <Compile Include="Models\OCR_RESULT.cs" />
+    <Compile Include="SimpleHttpServer\src\HttpBuilder.cs" />
+    <Compile Include="SimpleHttpServer\src\HttpProcessor.cs" />
+    <Compile Include="SimpleHttpServer\src\HttpServer.cs" />
+    <Compile Include="SimpleHttpServer\src\Models\HttpRequest.cs" />
+    <Compile Include="SimpleHttpServer\src\Models\HttpResponse.cs" />
+    <Compile Include="SimpleHttpServer\src\Models\Route.cs" />
+    <Compile Include="SimpleHttpServer\src\RouteHandlers\FileSystemRouteHandler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="client_secret_1061643460639-qcoftl51kdesicoa5ifd0a057g0cmql4.apps.googleusercontent.com.json">
+    <None Include="key.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
@@ -78,7 +93,6 @@
     <Content Include="1.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="ReadMe.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

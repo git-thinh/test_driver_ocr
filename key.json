@@ -1,0 +1,14 @@
+{
+  "installed": {
+    "client_id": "1061643460639-qcoftl51kdesicoa5ifd0a057g0cmql4.apps.googleusercontent.com",
+    "project_id": "primal-gate-265217",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_secret": "x2Z7RThUhoF6qw7Gxy8Lm-Qd",
+    "redirect_uris": [
+      "urn:ietf:wg:oauth:2.0:oob",
+      "http://localhost"
+    ]
+  }
+}
