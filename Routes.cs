@@ -1,4 +1,5 @@
-﻿using SimpleHttpServer.Models;
+﻿using Newtonsoft.Json;
+using SimpleHttpServer.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -18,23 +19,41 @@ namespace SimpleHttpServer
                 {
                     new Route {
                         Name = "Ocr", 
-                        //   /api/ocr?front_side=https://f88.vn/test/19.jpg&back_side=https://f88.vn/test/2.jpg
+                        //->  /api/ocr?file=https://f88.vn/test/19.jpg&side=front | back
                         UrlRegex = "/api/ocr",
                         Method = "GET",
                         Callable = ___response_api_ocr
-                    }
+                    },
+                    new Route {
+                        Name = "Token",
+                        UrlRegex = "/api/token",
+                        Method = "GET",
+                        Callable = (HttpRequest request) => new HttpResponse(request.APP.app_getJsonToken())
+                    },
+                    new Route {
+                        Name = "State",
+                        UrlRegex = "/api/state",
+                        Method = "GET",
+                        Callable = (HttpRequest request) => new HttpResponse(request.APP.app_getJsonState())
+                    },
+                    new Route {
+                        Name = "Is Busy",
+                        UrlRegex = "/api/is-busy",
+                        Method = "GET",
+                        Callable = (HttpRequest request) => new HttpResponse(request.APP.app_checkIsBusy())
+                    },
                 };
             }
         }
 
-        static string SaveImage(string imageUrl)
+        static string ___downloadImage(string imageUrl, IApp app)
         {
             try
             {
                 string file = Path.GetFileName(imageUrl);
                 string fileName = file.Substring(0, file.Length - 4) + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".jpg";
 
-                file = Path.Combine(@"c:\ocr-images\", fileName);
+                file = Path.Combine(app.PATH_OCR_IMAGE, fileName);
                 ImageFormat format = ImageFormat.Jpeg;
 
                 WebClient client = new WebClient();
@@ -52,20 +71,27 @@ namespace SimpleHttpServer
 
                 return fileName;
             }
-            catch (Exception ex) { }
+            catch (Exception ex)
+            {
+                app.Url = imageUrl;
+                app.StateOcr = STATE_OCR.OCR_FAIL_DOWNLOAD_FILE;
+                app.TextError = ex.Message;
+            }
 
-            return "";
+            return string.Empty;
         }
 
 
         static HttpResponse ___response_api_ocr(HttpRequest request)
         {
-            request.APP.TimeStart = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
+            if (request.APP == null) 
+                return new HttpResponse(JsonConvert.SerializeObject(new { Ok = false, TextError = "APP is null" }));
 
-            if (request.APP.StateOcr == STATE_OCR.OCR_IS_BUSY)
-            { 
-                return new HttpResponse(request.APP.app_getJsonResult());
-            }
+            request.APP.TextError = string.Empty;
+            request.APP.TimeStart = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
+            
+            if (request.APP.StateOcr == STATE_OCR.OCR_IS_BUSY) 
+                return new HttpResponse(request.APP.app_getJsonResult()); 
 
             if (request.Url.Contains("?") == false)
             {
@@ -73,39 +99,46 @@ namespace SimpleHttpServer
                 return new HttpResponse(request.APP.app_getJsonResult());
             }
 
-            //string files = string.Empty, front_side = string.Empty, back_side = string.Empty;
-            //string queryString = request.Url.Split('?')[1];
-            //if (queryString[0] == '/') queryString = queryString.Substring(1);
-            //if (!string.IsNullOrEmpty(queryString))
-            //{
-            //    var paras = System.Web.HttpUtility.ParseQueryString(queryString);
-            //    if (paras != null && paras.HasKeys())
-            //    {
-            //        HandlerCallback.OcrRunning = true;
-            //        front_side = paras.Get("front_side");
-            //        back_side = paras.Get("back_side");
+            string queryString = request.Url.Split('?')[1];
+            if (queryString[0] == '/') queryString = queryString.Substring(1);
+            if (!string.IsNullOrEmpty(queryString))
+            {
+                var paras = System.Web.HttpUtility.ParseQueryString(queryString);
+                if (paras != null && paras.HasKeys())
+                {
+                    string file = paras.Get("file");
+                    request.APP.SideImage = paras.Get("side") == "back" ? SIDE_IMAGE.BACK : SIDE_IMAGE.FRONT;
 
-            //        var f1 = SaveImage(front_side);
-            //        var f2 = SaveImage(back_side);
+                    if (string.IsNullOrEmpty(file))
+                    {
+                        request.APP.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
+                        return new HttpResponse(request.APP.app_getJsonResult());
+                    }
+                     
+                    if (file.ToLower().StartsWith("http"))
+                    {
+                        string fileName = ___downloadImage(file, request.APP);
+                        request.APP.goo_ocr_uploadFile(fileName, file);
+                    }
+                    else {
+                        request.APP.goo_ocr_uploadFile(file);
+                    }
 
-            //        if (string.IsNullOrEmpty(f1) || string.IsNullOrEmpty(f2))
-            //        {
-            //            HandlerCallback.OcrRunning = false;
-            //            return new HttpResponse(new OCR_RESULT("Cannot download images").getStringJson());
-            //        }
-
-            //        files = f1 + ";" + f2;
-
-            //        //Thread.Sleep(1000);
-
-            //        HandlerCallback.ocr_request_actractImage2Text(files);
-            //    }
-            //}
-            //else
-            //    return new HttpResponse(new OCR_RESULT("QueryString is null").getStringJson());
-
-
-            return new HttpResponse(request.APP.app_getJsonResult());
+                    //Success
+                    return new HttpResponse(request.APP.app_getJsonResult());
+                }
+                else
+                {
+                    request.APP.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
+                    return new HttpResponse(request.APP.app_getJsonResult());
+                }
+            }
+            else
+            {
+                request.APP.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
+                return new HttpResponse(request.APP.app_getJsonResult());
+            }
         }
     }
+
 }

@@ -17,6 +17,10 @@ namespace test_driver_ocr
 {
     public class App : IApp
     {
+        public string PATH_OCR_IMAGE { get; } = @"C:\ocr-images\";
+        public App() { if (Directory.Exists(PATH_OCR_IMAGE) == false) Directory.CreateDirectory(PATH_OCR_IMAGE); }
+
+
         #region [ DISABLE CLOSE BUTTON ]
 
         private const int MF_BYCOMMAND = 0x00000000;
@@ -99,31 +103,56 @@ namespace test_driver_ocr
 
         public string app_getJsonResult()
         {
+            bool ok = StateOcr == STATE_OCR.OCR_SUCCESS;
             string json = JsonConvert.SerializeObject(new
             {
-                Ok = StateOcr == STATE_OCR.OCR_SUCCESS,
-                Token = gooCredential,
-                ServiceState = StateGooService,
-                State = StateOcr,
-                Request = new { 
-                    File = FileName, 
-                    Url = Url 
+                Ok = ok,
+                ServiceState = StateGooService.ToString(),
+                State = StateOcr.ToString(),
+                Request = new
+                {
+                    File = FileName,
+                    Url = Url,
+                    Side = SideImage.ToString()
                 },
-                Result = TextResult,
+                Result = new
+                {
+                    Text = TextResult,
+                    Item = ok ? new CMT(true, TextResult) : new CMT(TextError)
+                },
                 Error = TextError,
-                TimeStart = TimeStart 
+                TimeStart = TimeStart
             }, Formatting.Indented);
 
             long timeComplete = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
-            json = json.Substring(0, json.Length - 1) + @",\n""TimeComplete"": " + timeComplete + "}";
+            json = json.Substring(0, json.Length - 1) + Environment.NewLine + 
+                @", ""TimeComplete"": " + timeComplete + "}";
 
             return json;
         }
+
+        public string app_getJsonToken() {
+            return JsonConvert.SerializeObject(new { 
+                State = StateOcr.ToString(), 
+                ServiceState = StateGooService.ToString(), 
+                Token = gooCredential == null ? null : gooCredential.Token
+            }, Formatting.Indented);
+        }
+
+        public string app_getJsonState() {
+            return JsonConvert.SerializeObject(new { 
+                State = StateOcr.ToString(),
+                ServiceState = StateGooService.ToString()
+            }, Formatting.Indented);
+        }
+
+        public string app_checkIsBusy() => StateOcr == STATE_OCR.OCR_IS_BUSY ? "1" : "0";
 
         #endregion
 
         #region [ GOOGLE SERVICE ]
 
+        public SIDE_IMAGE SideImage { get; set; }
         public STATE_GOO_SERVICE StateGooService { get; set; }
         public STATE_OCR StateOcr { get; set; }
         public long TimeStart { get; set; }
@@ -182,8 +211,11 @@ namespace test_driver_ocr
 
         public void goo_ocr_uploadFile(string fileName = "1.jpg", string url = "")
         {
-            string file = Path.Combine(@"c:\ocr-images\", fileName);
-            if (File.Exists(fileName) == false)
+            FileName = fileName;
+            Url = url;
+
+            string file = Path.Combine(PATH_OCR_IMAGE, fileName);
+            if (File.Exists(file) == false)
             {
                 StateOcr = STATE_OCR.OCR_FAIL_MISS_FILE;
                 return;
@@ -196,12 +228,8 @@ namespace test_driver_ocr
                 //body.MimeType = "application/vnd.ms-excel";
                 MimeType = "image/jpeg"
             };
-
-            TextError = string.Empty;
-            FileName = fileName;
-            Url = url;
-
-            byte[] byteArray = System.IO.File.ReadAllBytes(fileName);
+            
+            byte[] byteArray = System.IO.File.ReadAllBytes(file);
             using (MemoryStream stream = new MemoryStream(byteArray))
             {
                 try
@@ -253,9 +281,6 @@ namespace test_driver_ocr
 
         static void Main(string[] args)
         {
-            if (Directory.Exists(@"c:\ocr-images\") == false) 
-                Directory.CreateDirectory(@"c:\ocr-images\");
-
             ___disable_close_button();
             var app = new App();
             _app = (IApp)app;
