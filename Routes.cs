@@ -34,31 +34,25 @@ namespace SimpleHttpServer
                         Name = "State",
                         UrlRegex = "/api/state",
                         Method = "GET",
-                        Callable = (HttpRequest request) => new HttpResponse(request.APP.app_getJsonState())
-                    },
-                    new Route {
-                        Name = "Is Busy",
-                        UrlRegex = "/api/is-busy",
-                        Method = "GET",
-                        Callable = (HttpRequest request) => new HttpResponse(request.APP.app_checkIsBusy())
-                    },
+                        Callable = (HttpRequest request) => new HttpResponse(request.APP.app_getState())
+                    }
                 };
             }
         }
 
-        static string ___downloadImage(string imageUrl, IApp app)
+        static OcrImageInfo ___downloadImage(OcrImageInfo ocr, IApp app)
         {
             try
             {
-                string file = Path.GetFileName(imageUrl);
-                string fileName = file.Substring(0, file.Length - 4) + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".jpg";
+                string file = Path.GetFileName(ocr.Url);
+                ocr.FileName = file.Substring(0, file.Length - 4) + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".jpg";
 
-                file = Path.Combine(app.PATH_OCR_IMAGE, fileName);
+                file = Path.Combine(app.PATH_OCR_IMAGE, ocr.FileName);
                 ImageFormat format = ImageFormat.Jpeg;
 
                 WebClient client = new WebClient();
-                Stream stream = client.OpenRead(imageUrl);
-                Bitmap bitmap; bitmap = new Bitmap(stream);
+                Stream stream = client.OpenRead(ocr.Url);
+                Bitmap bitmap = new Bitmap(stream);
 
                 if (bitmap != null)
                 {
@@ -69,34 +63,39 @@ namespace SimpleHttpServer
                 stream.Close();
                 client.Dispose();
 
-                return fileName;
+                ocr.DownloadSuccess = true;
             }
             catch (Exception ex)
             {
-                app.Url = imageUrl;
-                app.StateOcr = STATE_OCR.OCR_FAIL_DOWNLOAD_FILE;
-                app.TextError = ex.Message;
+                ocr.DownloadSuccess = false;
+                ocr.StateOcr = STATE_OCR.OCR_FAIL_DOWNLOAD_FILE;
+                ocr.TextError = ex.Message;
             }
 
-            return string.Empty;
+            return ocr;
         }
 
 
         static HttpResponse ___response_api_ocr(HttpRequest request)
         {
-            if (request.APP == null) 
+            if (request.APP == null)
                 return new HttpResponse(JsonConvert.SerializeObject(new { Ok = false, TextError = "APP is null" }));
 
-            request.APP.TextError = string.Empty;
-            request.APP.TimeStart = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
-            
-            if (request.APP.StateOcr == STATE_OCR.OCR_IS_BUSY) 
-                return new HttpResponse(request.APP.app_getJsonResult()); 
+            if (request.APP.StateGooService == STATE_GOO_SERVICE.GOO_AUTHEN_PROCESSING)
+                return new HttpResponse(JsonConvert.SerializeObject(new { Ok = false, TextError = "Please wait, APP is authenting ..." }));
+
+            OcrImageInfo ocr = new OcrImageInfo();
+
+            ocr.TextError = string.Empty;
+            ocr.TimeStart = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
+
+            //if (request.APP.StateOcr == STATE_OCR.OCR_IS_BUSY) 
+            //    return new HttpResponse(request.APP.app_getJsonResult()); 
 
             if (request.Url.Contains("?") == false)
             {
-                request.APP.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
-                return new HttpResponse(request.APP.app_getJsonResult());
+                ocr.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
+                return new HttpResponse(ocr.app_getJsonResult(request.APP));
             }
 
             string queryString = request.Url.Split('?')[1];
@@ -106,37 +105,35 @@ namespace SimpleHttpServer
                 var paras = System.Web.HttpUtility.ParseQueryString(queryString);
                 if (paras != null && paras.HasKeys())
                 {
+                    ocr.SideImage = paras.Get("side") == "back" ? SIDE_IMAGE.BACK : SIDE_IMAGE.FRONT;
                     string file = paras.Get("file");
-                    request.APP.SideImage = paras.Get("side") == "back" ? SIDE_IMAGE.BACK : SIDE_IMAGE.FRONT;
-
                     if (string.IsNullOrEmpty(file))
                     {
-                        request.APP.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
-                        return new HttpResponse(request.APP.app_getJsonResult());
-                    }
-                     
-                    if (file.ToLower().StartsWith("http"))
-                    {
-                        string fileName = ___downloadImage(file, request.APP);
-                        request.APP.goo_ocr_uploadFile(fileName, file);
-                    }
-                    else {
-                        request.APP.goo_ocr_uploadFile(file);
+                        ocr.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
+                        return new HttpResponse(ocr.app_getJsonResult(request.APP));
                     }
 
+                    ocr.IsUrl = file.ToLower().StartsWith("http");
+                    if (ocr.IsUrl) ocr.Url = file; else ocr.FileName = file;
+
+                    if (ocr.IsUrl)
+                        ocr = ___downloadImage(ocr, request.APP);
+
+                    ocr = request.APP.goo_ocr_uploadFile(ocr);
+
                     //Success
-                    return new HttpResponse(request.APP.app_getJsonResult());
+                    return new HttpResponse(ocr.app_getJsonResult(request.APP));
                 }
                 else
                 {
-                    request.APP.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
-                    return new HttpResponse(request.APP.app_getJsonResult());
+                    ocr.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
+                    return new HttpResponse(ocr.app_getJsonResult(request.APP));
                 }
             }
             else
             {
-                request.APP.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
-                return new HttpResponse(request.APP.app_getJsonResult());
+                ocr.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
+                return new HttpResponse(ocr.app_getJsonResult(request.APP));
             }
         }
     }

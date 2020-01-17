@@ -44,14 +44,14 @@ namespace test_driver_ocr
 
         #region [ APP ]
 
-        const string _TITLE_FORMAT = "OCR.{0}: {1}";
+        const string _TITLE_FORMAT = "OCR.{0}: {1} - {2}";
 
         static int _PORT = 0;
         static HttpServer httpServer;
         static Thread thread;
         static IApp _app = null;
 
-        public string setTitleMessage(string message = "") => Console.Title = string.Format(_TITLE_FORMAT, _PORT, message);
+        public string setTitleMessage(string message = "") => Console.Title = string.Format(_TITLE_FORMAT, _PORT, message, DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
 
         public void Start(string[] args)
         {
@@ -101,66 +101,22 @@ namespace test_driver_ocr
             thread.Join();
         }
 
-        public string app_getJsonResult()
-        {
-            bool ok = StateOcr == STATE_OCR.OCR_SUCCESS;
-            string json = JsonConvert.SerializeObject(new
-            {
-                Ok = ok,
-                ServiceState = StateGooService.ToString(),
-                State = StateOcr.ToString(),
-                Request = new
-                {
-                    File = FileName,
-                    Url = Url,
-                    Side = SideImage.ToString()
-                },
-                Result = new
-                {
-                    Text = TextResult,
-                    Item = ok ? new CMT(true, TextResult) : new CMT(TextError)
-                },
-                Error = TextError,
-                TimeStart = TimeStart
-            }, Formatting.Indented);
-
-            long timeComplete = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
-            json = json.Substring(0, json.Length - 1) + Environment.NewLine + 
-                @", ""TimeComplete"": " + timeComplete + "}";
-
-            return json;
-        }
 
         public string app_getJsonToken() {
             return JsonConvert.SerializeObject(new { 
-                State = StateOcr.ToString(), 
+                //State = StateOcr.ToString(), 
                 ServiceState = StateGooService.ToString(), 
                 Token = gooCredential == null ? null : gooCredential.Token
             }, Formatting.Indented);
         }
 
-        public string app_getJsonState() {
-            return JsonConvert.SerializeObject(new { 
-                State = StateOcr.ToString(),
-                ServiceState = StateGooService.ToString()
-            }, Formatting.Indented);
-        }
-
-        public string app_checkIsBusy() => StateOcr == STATE_OCR.OCR_IS_BUSY ? "1" : "0";
+        public string app_getState() => StateGooService.ToString();
 
         #endregion
 
         #region [ GOOGLE SERVICE ]
 
-        public SIDE_IMAGE SideImage { get; set; }
-        public STATE_GOO_SERVICE StateGooService { get; set; }
-        public STATE_OCR StateOcr { get; set; }
-        public long TimeStart { get; set; }
-        public long TimeComplete { get; set; }
-        public string TextError { get; set; }
-        public string TextResult { get; set; }
-        public string FileName { get; set; }
-        public string Url { get; set; }
+        public STATE_GOO_SERVICE StateGooService { get; set; } 
 
 
         const string fileKey = "key.json";
@@ -171,6 +127,8 @@ namespace test_driver_ocr
 
         static void goo_initCredentialService()
         {
+            _app.setTitleMessage(STATE_GOO_SERVICE.GOO_AUTHEN_PROCESSING.ToString());
+            _app.StateGooService = STATE_GOO_SERVICE.GOO_AUTHEN_PROCESSING;
 
             if (!File.Exists(fileKey))
             {
@@ -201,6 +159,7 @@ namespace test_driver_ocr
                 });
 
                 _app.StateGooService = STATE_GOO_SERVICE.GOO_AUTHEN_SUCCESS;
+                _app.setTitleMessage(STATE_GOO_SERVICE.GOO_AUTHEN_SUCCESS.ToString());
             }
             catch (Exception ex)
             {
@@ -209,27 +168,24 @@ namespace test_driver_ocr
             }
         }
 
-        public void goo_ocr_uploadFile(string fileName = "1.jpg", string url = "")
-        {
-            FileName = fileName;
-            Url = url;
-
-            string file = Path.Combine(PATH_OCR_IMAGE, fileName);
+        public OcrImageInfo goo_ocr_uploadFile(OcrImageInfo ocr)
+        { 
+            string file = Path.Combine(PATH_OCR_IMAGE, ocr.FileName);
             if (File.Exists(file) == false)
             {
-                StateOcr = STATE_OCR.OCR_FAIL_MISS_FILE;
-                return;
+                ocr.StateOcr = STATE_OCR.OCR_FAIL_MISS_FILE;
+                return ocr;
             }
 
             DataFile body = new DataFile()
             {
-                Title = fileName,
-                Description = url,
+                Title = ocr.FileName,
+                Description = ocr.Url,
                 //body.MimeType = "application/vnd.ms-excel";
                 MimeType = "image/jpeg"
             };
             
-            byte[] byteArray = System.IO.File.ReadAllBytes(file);
+            byte[] byteArray = File.ReadAllBytes(file);
             using (MemoryStream stream = new MemoryStream(byteArray))
             {
                 try
@@ -258,21 +214,23 @@ namespace test_driver_ocr
                     FilesResource.ExportRequest requestExport = gooService.Files.Export(textFile.Id, "text/plain");
                     string output = requestExport.Execute();
 
-                    TextResult = output;
-                    StateOcr = STATE_OCR.OCR_SUCCESS;
+                    ocr.TextResult = output;
+                    ocr.StateOcr = STATE_OCR.OCR_SUCCESS;
                 }
                 catch (Exception e)
                 {
-                    TextError = e.Message;
-                    StateOcr = STATE_OCR.OCR_FAIL_THROW_ERROR;
+                    ocr.TextError = e.Message;
+                    ocr.StateOcr = STATE_OCR.OCR_FAIL_THROW_ERROR;
                 }
             }
+
+            return ocr;
         }
 
         #endregion
 
         static void ___app_Init()
-        {
+        {            
             goo_initCredentialService();
             //// For test
             //_app.goo_ocr_uploadFile();
