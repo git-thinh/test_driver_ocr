@@ -34,13 +34,14 @@ namespace SimpleHttpServer
             Input = text;
         }
 
-        const string FULLNAME_VALID = "QWERTYUIOPASDFGHJKLMNBVCXZ ÁÀẠẢÃÂẤẦẬẨẪĂẮẰẶẲẴ ÉÈẸẺẼÊẾỀỆỂỄ ÓÒỌỎÕÔỐỒỘỔỖƠỚỜỢỞỠ ÚÙỤỦŨƯỨỪỰỬỮ ÍÌỊỈĨ Đ ÝỲỴỶỸ";
+        const string FULLNAME_VALID_UPPER = "QWERTYUIOPASDFGHJKLMNBVCXZ ÁÀẠẢÃÂẤẦẬẨẪĂẮẰẶẲẴ ÉÈẸẺẼÊẾỀỆỂỄ ÓÒỌỎÕÔỐỒỘỔỖƠỚỜỢỞỠ ÚÙỤỦŨƯỨỪỰỬỮ ÍÌỊỈĨ Đ ÝỲỴỶỸ";
+        const string FULLNAME_VALID_LOWER = "qwertyuiopasdfghjklmnbvcxz áàạảãâấầậẩẫăắằặẳẵ éèẹẻẽêếềệểễ óòọỏõôốồộổỗơớờợởỡ úùụủũưứừựửữ íìịỉĩ đ ýỳỵỷỹ";
 
         public OcrConfig Execute()
         {
             string v = this.Input, textLower = v.ToLower(), s, t;
             string[] a1, a2;
-            int pos = -1;
+            int pos = -1, pos2 = -1;
 
             if (textLower.Contains("đặc điểm nhận")
                 || textLower.Contains("giám đốc")
@@ -55,6 +56,9 @@ namespace SimpleHttpServer
                 switch (Type)
                 {
                     case OCR_DATA_TYPE.CMT_ID:
+                        #region
+
+                        v = v.Replace('l', '1');
                         //v = Regex.Replace(v, @"[^\d]", " ").Trim();
                         v = Regex.Replace(v, @"[^0-9:]", " ").Trim();
                         v = Regex.Replace(v, @"\s+", " ").Trim();
@@ -64,34 +68,56 @@ namespace SimpleHttpServer
                         {
                             a2 = a1.Where(x => x.Length > 7).ToArray();
                             if (a2.Length > 0)
+                            {
                                 this.Result = a2[0].Trim();
-                            else
-                                this.Result = a1[0];
+                                return this;
+                            }
                         }
+
+                        this.Error = v;
+
+                        #endregion
                         break;
                     case OCR_DATA_TYPE.CMT_FULLNAME:
-                        pos = v.IndexOf("tên:");
-                        if (pos == -1) pos = v.IndexOf("tên");
-                        if (pos == -1) pos = v.IndexOf("ten");
+                        #region
+                        s = v;
 
-                        if (pos == -1) return this;
+                        pos = textLower.IndexOf("tên"); 
+                        if (pos == -1) pos = textLower.IndexOf("ten");
+                         
+                        pos2 = textLower.IndexOf("số");
+                        if (pos == -1) pos = pos2;
 
-                        pos = pos + 3;
-                        s = v.Substring(pos, v.Length - pos).Trim();
 
-                        s = s.Replace("Ngày,", "\r\n")
-                            .Replace("Sinh ngày", "\r\n")
-                            .Replace("Ngày", "\r\n")
-                            .Replace("Ngay", "\r\n");
+                        if (pos != -1) s = s.Substring(pos + 3, v.Length - pos - 3); 
+
+                        s = s.Replace('\r', ' ').Replace('\n', ' ');
+                        s = Regex.Replace(s, @"[0-9]", " ").Trim();
+                         
+                        a1 = s.Split(' ').Where(x => x.Length > 0).ToArray();
+                        for (int i = 0; i < a1.Length; i++)
+                        {
+                            for (int k = 0; k < a1[i].Length; k++)
+                            {
+                                if (FULLNAME_VALID_LOWER.IndexOf(a1[i][k]) != -1)
+                                {
+                                    s = s.Replace(a1[i], "  ");
+                                    break;
+                                }
+                            }
+                        }
+                        s = s.Trim();
 
                         char[] ca = new char[s.Length];
                         for (int i = 0; i < s.Length; i++)
                         {
-                            if (s[i] == '\r' || s[i] == '\n')
-                                ca[i] = s[i];
+                            if (s[i] == ':' || s[i] == '.')
+                            {
+                                ca[i] = ' ';
+                            }
                             else
                             {
-                                if (FULLNAME_VALID.IndexOf(s[i]) != -1)
+                                if (FULLNAME_VALID_UPPER.IndexOf(s[i]) != -1)
                                 {
                                     ca[i] = s[i];
                                 }
@@ -101,30 +127,58 @@ namespace SimpleHttpServer
                                 }
                             }
                         }
+                        t = new string(ca);
+                        t = t.Trim();
 
-                        s = new string(ca);
-                        s = s.Trim();
+                        a1 = t.Split(new string[] { "  " }, StringSplitOptions.None).Select(x => x.Trim()).Where(x => x.Split(' ').Length > 1).ToArray();
+                        if (a1.Length > 0)
+                            this.Result = a1[0];
+                        else
+                            this.Error = t;
 
-                        a1 = s.Split(new char[] { '\n', '\r', ' ' }); 
-                        for (int i = 0; i < a1.Length; i++) {                            
-                            if (a1[i].Length < 2) a1[i] = "";
-                        }
-                        s = string.Join(" ", a1).Trim();
-                        a2 = s.Split(new string[] { "  " }, StringSplitOptions.None).Select(x => x.Trim()).Where(x => x.Length > 4 && x.Contains(" ")).ToArray();
+                        #endregion
+                        break;
+                    case OCR_DATA_TYPE.CMT_BIRTHDAY:
+                        #region
 
-                        if(a2.Length > 0)
+                        v = v.Replace('/', '-').Replace(' ', '-')
+                            .Replace("-l-", "-1-").Replace("-ll-", "-11-")
+                            .Replace("ll-", "-11-").Replace("l-", "1-");
+
+                        v = Regex.Replace(v, @"[^0-9-]", " ").Trim();
+                        v = Regex.Replace(v, @"\s+", " ").Trim();
+                        a1 = v.Split(' ').Select((x) =>
                         {
-                            this.Result = a2[0];
-                            return this;
+                            string o = x.Trim();
+                            if (o.Length == 0) return o;
+                            o = o.Replace('-', ' ').Trim();
+                            o = Regex.Replace(o, @"\s+", " ").Trim();
+                            o = o.Replace(' ', '-');
+                            return o;
+                        }).Where(x => (x.Length >= 8 && x.Length <= 10) && x.Contains('-') && x.Split('-').Length == 3).ToArray();
+
+
+                        if (a1.Length > 0)
+                            this.Result = a1[0];
+                        else
+                            this.Error = v;
+
+                        #endregion
+                        break;
+                    case OCR_DATA_TYPE.CMT_ADDRESS:
+                        #region
+                        s = v;
+
+                        pos = textLower.IndexOf("trú");
+                        if (pos != -1)
+                        {
+                            s = s.Substring(pos + 3, s.Length - pos - 3);
+                            this.Result = s;
                         }
+                        else
+                            this.Error = s;
 
-                        //t = s.Split('\n')[0].Trim();
-                        //if (t.Split(' ').Length == 3 || t.Split(' ').Length == 4)
-                        //{
-                        //    this.Result = t;
-                        //    return this;
-                        //}
-
+                        #endregion
                         break;
                 }
             }

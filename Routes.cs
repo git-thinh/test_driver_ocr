@@ -181,25 +181,34 @@ namespace SimpleHttpServer
                 {
                     var id_ = new OcrConfig(x.Text, OCR_DATA_TYPE.CMT_ID).Execute();
                     var name_ = new OcrConfig(x.Text, OCR_DATA_TYPE.CMT_FULLNAME).Execute();
+                    var birthday_ = new OcrConfig(x.Text, OCR_DATA_TYPE.CMT_BIRTHDAY).Execute();
                     var address_ = new OcrConfig(x.Text, OCR_DATA_TYPE.CMT_ADDRESS).Execute();
 
                     StringBuilder bi = new StringBuilder();
                     if (!id_.Success) bi.Append(id_.Error + Environment.NewLine);
                     if (!name_.Success) bi.Append(name_.Error + Environment.NewLine);
+                    if (!birthday_.Success) bi.Append(birthday_.Error + Environment.NewLine); ;
                     if (!address_.Success) bi.Append(address_.Error + Environment.NewLine);
 
                     return new
                     {
                         page = id_.Page,
-                        id = id_.Success ? id_.Error : id_.Result,
-                        name = name_.Success ? name_.Error : name_.Result,
-                        address = address_.Success ? address_.Error : address_.Result,
+                        id = id_.Result,
+                        name =  name_.Result,
+                        birthday =  birthday_.Result,
+                        address =  address_.Result,
                         file = x.FileName,
-                        error = "",
+
+                        //error = id_.Error,
+                        //error = name_.Error,
+                        //error = birthday_.Error,
+                        error = address_.Error,
+
                         text = x.Text
                     };
                 })
                 .Where(x => x.page == 1)
+                //.Where(x => !string.IsNullOrEmpty(x.error))
                 .ToArray();
 
             json = JsonConvert.SerializeObject(a, Formatting.Indented);
