@@ -170,6 +170,9 @@ namespace SimpleHttpServer
                         s = v;
 
                         pos = textLower.IndexOf("trú");
+                        if (pos == -1) pos = textLower.IndexOf("quán");
+                        if (pos == -1) pos = textLower.IndexOf("quan");
+
                         if (pos != -1)
                         {
                             s = s.Substring(pos + 3, s.Length - pos - 3);
