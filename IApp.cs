@@ -34,6 +34,7 @@ namespace SimpleHttpServer
     }
 
     public class OcrImageInfo {
+        public bool WriteToFile { get; set; }
         public bool IsUrl { get; set; }
         public bool DownloadSuccess { get; set; }
         public long TimeStart { get; set; }
@@ -84,9 +85,10 @@ namespace SimpleHttpServer
 
         //string app_getJsonResult(OcrImageInfo ocr);
         string app_getJsonToken();
-        string app_getState(); 
+        string app_getState();
 
         string setTitleMessage(string message = "");
+        void writeLogMessage(string message = "");
 
         OcrImageInfo goo_ocr_uploadFile(OcrImageInfo ocr);
     }

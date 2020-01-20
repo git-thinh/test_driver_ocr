@@ -5,7 +5,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Text;
 
 namespace SimpleHttpServer
 {
@@ -23,6 +25,18 @@ namespace SimpleHttpServer
                         UrlRegex = "/api/ocr",
                         Method = "GET",
                         Callable = ___response_api_ocr
+                    },
+                    new Route {
+                        Name = "Ocr Dir",
+                        UrlRegex = "/api/test-all",
+                        Method = "GET",
+                        Callable = ___response_api_ocr_test
+                    },
+                    new Route {
+                        Name = "Ocr Txt",
+                        UrlRegex = "/api/test-txt",
+                        Method = "GET",
+                        Callable = ___response_api_ocr_txt
                     },
                     new Route {
                         Name = "Token",
@@ -75,7 +89,6 @@ namespace SimpleHttpServer
             return ocr;
         }
 
-
         static HttpResponse ___response_api_ocr(HttpRequest request)
         {
             if (request.APP == null)
@@ -116,11 +129,11 @@ namespace SimpleHttpServer
                     ocr.IsUrl = file.ToLower().StartsWith("http");
                     if (ocr.IsUrl) ocr.Url = file; else ocr.FileName = file;
 
-                    if (ocr.IsUrl)
-                        ocr = ___downloadImage(ocr, request.APP);
+                    if (ocr.IsUrl) ocr = ___downloadImage(ocr, request.APP);
+
+                    request.APP.setTitleMessage(file);
 
                     ocr = request.APP.goo_ocr_uploadFile(ocr);
-
                     //Success
                     return new HttpResponse(ocr.app_getJsonResult(request.APP));
                 }
@@ -135,6 +148,63 @@ namespace SimpleHttpServer
                 ocr.StateOcr = STATE_OCR.OCR_FAIL_MISS_QUERY_STRING;
                 return new HttpResponse(ocr.app_getJsonResult(request.APP));
             }
+        }
+
+        static HttpResponse ___response_api_ocr_test(HttpRequest request)
+        {
+            string json = "{}";
+            IApp app = request.APP;
+
+            var files = Directory.GetFiles(app.PATH_OCR_IMAGE, "*.jpg").Select(x => Path.GetFileName(x)).ToArray();
+            var ocrs = files.Select(x => app.goo_ocr_uploadFile(new OcrImageInfo() { FileName = x, WriteToFile = true })).ToArray();
+            json = JsonConvert.SerializeObject(ocrs, Formatting.Indented);
+
+            return new HttpResponse(json);
+        }
+
+        static HttpResponse ___response_api_ocr_txt(HttpRequest request)
+        {
+            string json = "{}";
+            IApp app = request.APP;
+
+            var a = Directory.GetFiles(app.PATH_OCR_IMAGE + @"\log", "*.txt")
+                .Select((x) =>
+                {
+                    string s = File.ReadAllText(x);
+                    return new
+                    {
+                        FileName = Path.GetFileName(x),
+                        Text = s
+                    };
+                })
+                .Select(x =>
+                {
+                    var id_ = new OcrConfig(x.Text, OCR_DATA_TYPE.CMT_ID).Execute();
+                    var name_ = new OcrConfig(x.Text, OCR_DATA_TYPE.CMT_FULLNAME).Execute();
+                    var address_ = new OcrConfig(x.Text, OCR_DATA_TYPE.CMT_ADDRESS).Execute();
+
+                    StringBuilder bi = new StringBuilder();
+                    if (!id_.Success) bi.Append(id_.Error + Environment.NewLine);
+                    if (!name_.Success) bi.Append(name_.Error + Environment.NewLine);
+                    if (!address_.Success) bi.Append(address_.Error + Environment.NewLine);
+
+                    return new
+                    {
+                        page = id_.Page,
+                        id = id_.Success ? id_.Error : id_.Result,
+                        name = name_.Success ? name_.Error : name_.Result,
+                        address = address_.Success ? address_.Error : address_.Result,
+                        file = x.FileName,
+                        error = "",
+                        text = x.Text
+                    };
+                })
+                .Where(x => x.page == 1)
+                .ToArray();
+
+            json = JsonConvert.SerializeObject(a, Formatting.Indented);
+
+            return new HttpResponse(json);
         }
     }
 

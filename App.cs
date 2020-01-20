@@ -18,7 +18,11 @@ namespace test_driver_ocr
     public class App : IApp
     {
         public string PATH_OCR_IMAGE { get; } = @"C:\ocr-images\";
-        public App() { if (Directory.Exists(PATH_OCR_IMAGE) == false) Directory.CreateDirectory(PATH_OCR_IMAGE); }
+        public App()
+        {
+            if (Directory.Exists(PATH_OCR_IMAGE) == false) Directory.CreateDirectory(PATH_OCR_IMAGE);
+            if (Directory.Exists(PATH_OCR_IMAGE + "log") == false) Directory.CreateDirectory(PATH_OCR_IMAGE + "log");
+        }
 
 
         #region [ DISABLE CLOSE BUTTON ]
@@ -52,6 +56,10 @@ namespace test_driver_ocr
         static IApp _app = null;
 
         public string setTitleMessage(string message = "") => Console.Title = string.Format(_TITLE_FORMAT, _PORT, message, DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
+
+        public void writeLogMessage(string message = "") {
+            if(!string.IsNullOrWhiteSpace(message)) Console.WriteLine(message);
+        }
 
         public void Start(string[] args)
         {
@@ -100,11 +108,9 @@ namespace test_driver_ocr
             thread.Abort(100);
             thread.Join();
         }
-
-
+        
         public string app_getJsonToken() {
-            return JsonConvert.SerializeObject(new { 
-                //State = StateOcr.ToString(), 
+            return JsonConvert.SerializeObject(new {  
                 ServiceState = StateGooService.ToString(), 
                 Token = gooCredential == null ? null : gooCredential.Token
             }, Formatting.Indented);
@@ -117,8 +123,7 @@ namespace test_driver_ocr
         #region [ GOOGLE SERVICE ]
 
         public STATE_GOO_SERVICE StateGooService { get; set; } 
-
-
+        
         const string fileKey = "key.json";
         static string[] Scopes = { DriveService.Scope.Drive };
         static string ApplicationName = "Ocr-Image-Driver-Vision";
@@ -216,6 +221,13 @@ namespace test_driver_ocr
 
                     ocr.TextResult = output;
                     ocr.StateOcr = STATE_OCR.OCR_SUCCESS;
+
+                    writeLogMessage("OK: " + ocr.FileName);
+
+                    if (ocr.WriteToFile) {
+                        if (!string.IsNullOrEmpty(ocr.TextResult))
+                            File.WriteAllText(PATH_OCR_IMAGE + @"log\" + ocr.FileName + ".txt", ocr.TextResult);
+                    }
                 }
                 catch (Exception e)
                 {
