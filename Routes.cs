@@ -190,19 +190,19 @@ namespace SimpleHttpServer
                     if (!birthday_.Success) bi.Append(birthday_.Error + Environment.NewLine); ;
                     if (!address_.Success) bi.Append(address_.Error + Environment.NewLine);
 
-                    return new
+                    return new CMT()
                     {
                         page = id_.Page,
                         id = id_.Result,
-                        name =  name_.Result,
-                        birthday =  birthday_.Result,
-                        address =  address_.Result,
+                        fullname = name_.Result,
+                        birthday = birthday_.Result,
+                        address = address_.Result,
                         file = x.FileName,
 
                         //error = id_.Error,
                         //error = name_.Error,
                         //error = birthday_.Error,
-                        error = address_.Error,
+                        //error = address_.Error,
 
                         text = x.Text
                     };

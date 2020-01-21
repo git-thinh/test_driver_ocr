@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Text;
 
 namespace SimpleHttpServer
 {
@@ -50,6 +51,38 @@ namespace SimpleHttpServer
         public string app_getJsonResult(IApp app)
         {
             bool ok = this.StateOcr == STATE_OCR.OCR_SUCCESS;
+            var ocr = new CMT();
+
+            if (ok) {
+                string xText = this.TextResult;
+
+                var id_ = new OcrConfig(xText, OCR_DATA_TYPE.CMT_ID).Execute();
+                var name_ = new OcrConfig(xText, OCR_DATA_TYPE.CMT_FULLNAME).Execute();
+                var birthday_ = new OcrConfig(xText, OCR_DATA_TYPE.CMT_BIRTHDAY).Execute();
+                var address_ = new OcrConfig(xText, OCR_DATA_TYPE.CMT_ADDRESS).Execute();
+
+                StringBuilder bi = new StringBuilder();
+                if (!id_.Success) bi.Append(id_.Error + Environment.NewLine);
+                if (!name_.Success) bi.Append(name_.Error + Environment.NewLine);
+                if (!birthday_.Success) bi.Append(birthday_.Error + Environment.NewLine); ;
+                if (!address_.Success) bi.Append(address_.Error + Environment.NewLine);
+
+                ocr.page = id_.Page;
+                ocr.id = id_.Result;
+                ocr.fullname = name_.Result;
+                ocr.birthday = birthday_.Result;
+                ocr.address = address_.Result;
+
+                ocr.file = this.FileName;
+                ocr.text = xText;
+
+                //ocr.error = id_.Error;
+                //ocr.error = name_.Error;
+                //ocr.error = birthday_.Error;
+                ocr.error = address_.Error;
+            }
+
+
             string json = JsonConvert.SerializeObject(new
             {
                 Ok = ok,
@@ -64,7 +97,8 @@ namespace SimpleHttpServer
                 Result = new
                 {
                     Text = this.TextResult,
-                    Item = ok ? new CMT(true, this.TextResult) : new CMT(this.TextError)
+                    //Item = ok ? new CMT(true, this.TextResult) : new CMT(this.TextError)
+                    Item = ocr
                 },
                 Error = this.TextError,
                 TimeStart = this.TimeStart
