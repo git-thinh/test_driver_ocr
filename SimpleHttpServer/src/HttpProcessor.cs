@@ -64,24 +64,32 @@ namespace SimpleHttpServer
         }
 
         // this formats the HTTP response...
-        private static void WriteResponse(Stream stream, HttpResponse response) {            
-            if (response.Content == null) {           
-                response.Content = new byte[]{};
+        private static void WriteResponse(Stream stream, HttpResponse response) {
+            try
+            {
+                if (response.Content == null)
+                {
+                    response.Content = new byte[] { };
+                }
+
+                // default to text/html content type
+                if (!response.Headers.ContainsKey("Content-Type"))
+                {
+                    //response.Headers["Content-Type"] = "text/html";
+                    response.Headers["Content-Type"] = "application/json; charset=utf-8";
+                }
+
+                response.Headers["Content-Length"] = response.Content.Length.ToString();
+
+                Write(stream, string.Format("HTTP/1.0 {0} {1}\r\n", response.StatusCode, response.ReasonPhrase));
+                Write(stream, string.Join("\r\n", response.Headers.Select(x => string.Format("{0}: {1}", x.Key, x.Value))));
+                Write(stream, "\r\n\r\n");
+
+                stream.Write(response.Content, 0, response.Content.Length);
             }
-            
-            // default to text/html content type
-            if (!response.Headers.ContainsKey("Content-Type")) {
-                //response.Headers["Content-Type"] = "text/html";
-                response.Headers["Content-Type"] = "application/json; charset=utf-8";
+            catch (Exception e1) {
+                Console.WriteLine(e1.Message);
             }
-
-            response.Headers["Content-Length"] = response.Content.Length.ToString();
-
-            Write(stream, string.Format("HTTP/1.0 {0} {1}\r\n",response.StatusCode,response.ReasonPhrase));
-            Write(stream, string.Join("\r\n", response.Headers.Select(x => string.Format("{0}: {1}", x.Key, x.Value))));
-            Write(stream, "\r\n\r\n");
-
-            stream.Write(response.Content, 0, response.Content.Length);       
         }
 
         public void AddRoute(Route route)
